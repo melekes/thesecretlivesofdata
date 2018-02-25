@@ -145,6 +145,7 @@ define(["../model/log_entry"], function (LogEntry) {
           frame.snapshot();
           frame.model().subtitle = '<h3>But what happens to such algorithms when one <span style="color:red">node</span> start acting maliciously?</h3>'
             + frame.model().controls.html();
+          node("a")._state = "leader";
           layout.invalidate();
         })
         .after(100, wait).indefinite()

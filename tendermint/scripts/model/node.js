@@ -7,11 +7,11 @@ define(["./log_entry"], function (LogEntry) {
     function Node(model, id) {
         playback.DataObject.call(this, model);
         this.id = id;
-        this._state = "follower";
+        this._state = "validator";
         this._cluster = [this];
         this._value = "";
         this._currentTerm = 0;
-        this._leaderId = null;
+        this._proposerId = null;
         this._votedFor = null;
         this._voteCount = null;
         this._commitIndex = 0;
@@ -25,7 +25,7 @@ define(["./log_entry"], function (LogEntry) {
         this._electionTimer = null;
 
         this.addEventListener("stateChange", this.onStateChange);
-        this.addEventListener("leaderIdChange", this.onLeaderIdChange);
+        this.addEventListener("proposerIdChange", this.onProposerIdChange);
         this.addEventListener("votedForChange", this.onVotedForChange);
         this.addEventListener("voteCountChange", this.onVoteCountChange);
         this.addEventListener("currentTermChange", this.onCurrentTermChange);
@@ -37,10 +37,10 @@ define(["./log_entry"], function (LogEntry) {
     Node.prototype.constructor = Node;
 
     /**
-     * Initializes the node to a follower.
+     * Initializes the node to a validator.
      */
     Node.prototype.init = function () {
-        this.state("follower");
+        this.state("validator");
         return this;
     };
 
@@ -118,10 +118,10 @@ define(["./log_entry"], function (LogEntry) {
     };
 
     /**
-     * Retrieve the current known leader identifier.
+     * Retrieve the current known proposer identifier.
      */
-    Node.prototype.leaderId = function () {
-        return this._leaderId;
+    Node.prototype.proposerId = function () {
+        return this._proposerId;
     };
 
     /**
@@ -189,8 +189,8 @@ define(["./log_entry"], function (LogEntry) {
             return this._matchIndex[id];
         }
 
-        // Only update if this node is the leader.
-        if (this.state() === "leader") {
+        // Only update if this node is the proposer.
+        if (this.state() === "proposer") {
             this._matchIndex[id] = value;
 
             // Update commit index.
@@ -238,9 +238,9 @@ define(["./log_entry"], function (LogEntry) {
         if (changed) {
             this._currentTerm = value;
             this._votedFor = null;
-            this._leaderId = null;
+            this._proposerId = null;
             this._voteCount = 0;
-            this.state("follower");
+            this.state("validator");
             this.dispatchChangeEvent("votedForChange");
             this.dispatchChangeEvent("voteCountChange");
             this.dispatchChangeEvent("currentTermChange", value, prevValue);
@@ -260,13 +260,13 @@ define(["./log_entry"], function (LogEntry) {
 
         // Begin event loop for this node.
         switch (this._state) {
-        case "leader":
-            this.leaderEventLoop();
+        case "proposer":
+            this.proposerEventLoop();
             break;
         case "candidate":
             this.candidateEventLoop();
             break;
-        case "follower":
+        case "validator":
             this.followerEventLoop();
             break;
         case "stopped":
@@ -288,7 +288,7 @@ define(["./log_entry"], function (LogEntry) {
     Node.prototype.execute = function (command, callback) {
         var entry,
             prevIndex = (this._log.length > 0 ? this._log[this._log.length-1].index : 0);
-        if (this.state() !== "leader") {
+        if (this.state() !== "proposer") {
             return false;
         }
 
@@ -303,7 +303,7 @@ define(["./log_entry"], function (LogEntry) {
     //----------------------------------
 
     /**
-     * Runs the node as a leader:
+     * Runs the node as a proposer:
      *
      *   - Upon election: send initial empty AE RPC to each server,
      *     repeat during idle periods to prevent election timeouts. (§5.2)
@@ -311,9 +311,9 @@ define(["./log_entry"], function (LogEntry) {
      *   - If command received from client: append entry to local log,
      *     respond after entry applied to state machine. (§5.3)
      *
-     *   - If last log index ≥ nextIndex for a follower: send AE
+     *   - If last log index ≥ nextIndex for a validator: send AE
      *     RPC with log entries starting at nextIndex.
-     *     - If succcessful: update nextIndex and matchIndex for follower (§5.3).
+     *     - If succcessful: update nextIndex and matchIndex for validator (§5.3).
      *     - If AE fails because of log inconsistency: decrement nextIndex
      *       and retry (§5.3).
      *
@@ -321,7 +321,7 @@ define(["./log_entry"], function (LogEntry) {
      *     matchIndex[i] ≥ N, and log[N].term == currentTerm:
      *     set commitIndex = N (§5.3, §5.4).
      */
-    Node.prototype.leaderEventLoop = function () {
+    Node.prototype.proposerEventLoop = function () {
         var self = this,
             frame = this.frame();
 
@@ -342,9 +342,9 @@ define(["./log_entry"], function (LogEntry) {
      *     - Reset election timeout.
      *     - Send RequestVote RPCs to all other servers.
      *
-     *   - If votes received from majority of server: become leader.
+     *   - If votes received from majority of server: become proposer.
      *
-     *   - If AppendEntries RPC received from new leader: convert to follower.
+     *   - If AppendEntries RPC received from new proposer: convert to validator.
      *
      *   - If election timeout elapses, start new election.
      */
@@ -355,8 +355,8 @@ define(["./log_entry"], function (LogEntry) {
         // Vote for self.
         this._votedFor = this.id;
         this._voteCount = 1;
-        this._leaderId = null;
-        this.dispatchChangeEvent("leaderIdChange");
+        this._proposerId = null;
+        this.dispatchChangeEvent("proposerIdChange");
         this.dispatchChangeEvent("votedForChange");
         this.dispatchChangeEvent("voteCountChange");
 
@@ -369,12 +369,12 @@ define(["./log_entry"], function (LogEntry) {
     };
 
     /**
-     * Runs the node as a follower.
+     * Runs the node as a validator.
      *
-     *   - Respond to RPCs from candidates and leaders.
+     *   - Respond to RPCs from candidates and proposers.
      *
      *   - If election timeout elapses without receiving AE RPC
-     *     from current leader or granting vote to candidate:
+     *     from current proposer or granting vote to candidate:
      *     convert to candidate.
      */
     Node.prototype.followerEventLoop = function () {
@@ -566,9 +566,9 @@ define(["./log_entry"], function (LogEntry) {
         if (resp.voteGranted && this.state() === "candidate") {
             this._voteCount += 1;
 
-            // Promote to leader.
+            // Promote to proposer.
             if (this._voteCount >= quorumSize) {
-                this.state("leader");
+                this.state("proposer");
             }
             this.dispatchChangeEvent("voteCountChange");
         }
@@ -600,11 +600,11 @@ define(["./log_entry"], function (LogEntry) {
             req   = {
                 type: "AEREQ",
                 term: this.currentTerm(),
-                leaderId: this.id,
+                proposerId: this.id,
                 prevLogIndex: (prevEntry !== undefined ? prevEntry.index : 0),
                 prevLogTerm: (prevEntry !== undefined ? prevEntry.term : 0),
                 log: this._log.slice(nextIndex - 1).map(function (entry) { var clone = entry.clone(); clone.callback = null; return clone; }),
-                leaderCommit: this.commitIndex(),
+                proposerCommit: this.commitIndex(),
             };
         this.dispatchChangeEvent("appendEntriesRequestSent", req);
 
@@ -636,13 +636,13 @@ define(["./log_entry"], function (LogEntry) {
         }
 
         if (success) {
-            // Update leader.
-            this._leaderId = req.leaderId;
-            this.dispatchChangeEvent("leaderIdChange");
+            // Update proposer.
+            this._proposerId = req.proposerId;
+            this.dispatchChangeEvent("proposerIdChange");
 
             // Step down if candidate.
             if (this.state() === "candidate") {
-                this.state("follower");
+                this.state("validator");
             }
 
             // If an existing entry conflicts with a new one (same index but different terms), delete the existing entry and all that follow it (§5.3).
@@ -654,8 +654,8 @@ define(["./log_entry"], function (LogEntry) {
             // Append log entries.
             this._log = this._log.concat(req.log);
 
-            // If leaderCommit > commitIndex, set commitIndex = min(leaderCommit, last log index).
-            this.commitIndex(req.leaderCommit);
+            // If proposerCommit > commitIndex, set commitIndex = min(proposerCommit, last log index).
+            this.commitIndex(req.proposerCommit);
 
             // Reset election timeout.
             this.resetElectionTimer();
@@ -680,7 +680,7 @@ define(["./log_entry"], function (LogEntry) {
     };
 
     Node.prototype.recvAppendEntriesResponse = function (source, req, resp) {
-        if (this.state() !== "leader") {
+        if (this.state() !== "proposer") {
             return;
         }
 
@@ -703,7 +703,7 @@ define(["./log_entry"], function (LogEntry) {
         event.target.layout().invalidate();
     };
 
-    Node.prototype.onLeaderIdChange = function (event) {
+    Node.prototype.onProposerIdChange = function (event) {
         event.target.layout().invalidate();
     };
 

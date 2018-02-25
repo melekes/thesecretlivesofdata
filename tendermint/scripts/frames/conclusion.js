@@ -24,12 +24,13 @@ define([], function () {
 
         .after(500, function () {
             frame.model().title = '<h2 style="visibility:visible">For more information:</h2>'
-                        + '<h3 style="visibility:visible"><a href="https://ramcloud.stanford.edu/wiki/download/attachments/11370504/raft.pdf">The Raft Paper</a></h3>'
-                        + '<h3 style="visibility:visible"><a href="http://raftconsensus.github.io/">Raft Web Site</a></h3>'
+                        + '<h3 style="visibility:visible"><a href="https://tendermint.com/">Tendermint Web Site</a></h3>'
+                        + '<h3 style="visibility:visible"><a href="https://tendermint.readthedocs.io/projects/tools/en/master/">Tendermint Docs</a></h3>'
+                        + '<h3 style="visibility:visible"><a href="https://tendermint.com/static/docs/tendermint.pdf">Tendermint Whitepaper</a></h3>'
                         + '<br/>' + frame.model().controls.html();
             layout.invalidate();
         })
-        
+
         player.play();
     };
 });

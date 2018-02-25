@@ -20,7 +20,7 @@ define(["../model/log_entry"], function (LogEntry) {
         })
 
         .after(1000, function () {
-            frame.model().title = '<h2 style="visibility:visible">So What is Distributed Consensus?</h2>'
+            frame.model().title = '<h2 style="visibility:visible">So What is Byzantine-Fault Tolerant (BFT) Distributed Consensus?</h2>'
                         + '<h3 style="visibility:hidden;">Let\'s start with an example...</h3>'
                         + '<br/>' + frame.model().controls.html();
             layout.invalidate();
@@ -184,6 +184,14 @@ define(["../model/log_entry"], function (LogEntry) {
             frame.snapshot();
             frame.model().subtitle = '<h3>Buckle your seatbelt Dorothy, because Kansas is going bye-bye.</h3>'
                           + frame.model().controls.html();
+            layout.invalidate();
+        })
+        .after(100, wait).indefinite()
+
+        .after(100, function () {
+            frame.snapshot();
+          frame.model().subtitle = '<h3>That\'s the problem of <em>Byzantine-Fault Tolerant (BFT) distributed consensus</em>.</h3>'
+                         + frame.model().controls.html();
             layout.invalidate();
         })
         .after(100, wait).indefinite()

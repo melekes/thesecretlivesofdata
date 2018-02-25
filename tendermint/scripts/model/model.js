@@ -156,12 +156,12 @@ define(["./controls", "./client", "./message", "./node", "./partition"], functio
     };
 
     /**
-     * Returns the current leader.
+     * Returns the current proposer.
      */
-    Model.prototype.leader = function (within) {
+    Model.prototype.proposer = function (within) {
         return this.nodes.toArray().filter(function (node) {
             if (within === undefined || within === null || within.indexOf(node.id) !== -1) {
-                return node.state() === "leader";
+                return node.state() === "proposer";
             }
         }).shift();
     };
@@ -200,7 +200,7 @@ define(["./controls", "./client", "./message", "./node", "./partition"], functio
             if (node.id !== candidateId && startTime < minStartTime) {
                 node.electionTimer().startTime(minStartTime);
             }
-        });        
+        });
 
         return candidateId;
     };
@@ -217,7 +217,7 @@ define(["./controls", "./client", "./message", "./node", "./partition"], functio
         nodes.forEach(function (node) {
             var minStartTime = minTime + (self.defaultNetworkLatency * 1.25);
             node.electionTimer().startTime(minStartTime);
-        });        
+        });
     };
 
     /**
@@ -243,18 +243,18 @@ define(["./controls", "./client", "./message", "./node", "./partition"], functio
     };
 
     /**
-     * Forces a leader to be elected immediately.
+     * Forces a proposer to be elected immediately.
      */
-    Model.prototype.forceImmediateLeader = function () {
+    Model.prototype.forceImmediateProposer = function () {
         var nodes  = this.nodes.toArray(),
-            leader = nodes[Math.floor(Math.random()*nodes.length)],
-            followers = nodes.filter(function (node) { return node !== leader; });
+            proposer = nodes[Math.floor(Math.random()*nodes.length)],
+            followers = nodes.filter(function (node) { return node !== proposer; });
         this.resetToNextTerm();
         followers.forEach(function (node) {
-            node._leaderId = leader.id;
+            node._proposerId = proposer.id;
             node.state("follower");
         })
-        leader.state("leader");
+        proposer.state("proposer");
     };
 
     /**

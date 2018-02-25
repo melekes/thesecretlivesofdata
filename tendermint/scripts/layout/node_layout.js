@@ -53,7 +53,7 @@ define([], function () {
                     fill = function (d) { return d.state() === "stopped" ? "gray" : "steelblue"; },
                     stroke = {
                         dash: function (d) { return (d.state() === "candidate" ? "5,5" : ""); },
-                        opacity: function (d) { return (d.state() === "follower" || d.state() === "stopped" ? 0 : 1); },
+                        opacity: function (d) { return (d.state() === "validator" || d.state() === "stopped" ? 0 : 1); },
                     };
 
                 var g = this.enter().append("g")
@@ -105,8 +105,8 @@ define([], function () {
                     desc.push();
                     if (node.state() === "candidate") {
                         desc.push("Vote Count: " + node.voteCount());
-                    } else if (node.leaderId() !== null) {
-                        desc.push("Leader: " + node.leaderId());
+                    } else if (node.proposerId() !== null) {
+                        desc.push("Proposer: " + node.proposerId());
                     } else if (node.state() === "follower" && node.votedFor() !== null) {
                         desc.push("Voted For: " + node.votedFor());
                     }
@@ -201,7 +201,7 @@ define([], function () {
     };
 
     NodeLayout.prototype.layout = function (x, y, w, h) {
-        var i, j, node, entry, step, 
+        var i, j, node, entry, step,
             model = this.parent().model(),
             nodes = this.nodes(),
             angle = ANGLE[nodes.length];
@@ -239,7 +239,7 @@ define([], function () {
                 entry.w = ENTRY.w;
                 entry.h = ENTRY.h;
             }
-            
+
         }
     };
 
